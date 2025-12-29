@@ -5,6 +5,8 @@ import { Button } from './ui/Button';
 export const PickleballGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const logoRef = useRef<HTMLImageElement | null>(null); // Ref for the logo image
+  
   const [gameState, setGameState] = useState<'START' | 'PLAYING' | 'GAMEOVER'>('START');
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
@@ -14,11 +16,19 @@ export const PickleballGame: React.FC = () => {
   const PADDLE_WIDTH = 80;
   const PADDLE_HEIGHT = 15;
   const BALL_RADIUS = 8;
+  const KITCHEN_LINE_Y = 150; // Distance from net (top)
 
   // Refs for game loop
   const ballRef = useRef({ x: 0, y: 0, dx: 4, dy: -4, speed: 4 });
   const paddleRef = useRef({ x: 0 });
   const reqRef = useRef<number>(0);
+
+  // Load Logo Image once
+  useEffect(() => {
+    const img = new Image();
+    img.src = "https://i.imgur.com/cxjGH3m.png";
+    logoRef.current = img;
+  }, []);
 
   // Responsive Canvas Sizing
   useEffect(() => {
@@ -62,7 +72,7 @@ export const PickleballGame: React.FC = () => {
       ball.dx = -ball.dx;
     }
 
-    // Ceiling Collision
+    // Ceiling Collision (Net/Opponent Wall)
     if (ball.y - BALL_RADIUS < 0) {
       ball.dy = -ball.dy;
     }
@@ -79,12 +89,10 @@ export const PickleballGame: React.FC = () => {
         const hitPoint = ball.x - (paddle.x + PADDLE_WIDTH / 2);
         
         // Add Randomness to the Angle (Spin/Surface effect)
-        // This adds a small random deviation between -1.5 and 1.5 to the X velocity
         const randomAngle = (Math.random() * 3) - 1.5;
         ball.dx = (hitPoint * 0.15) + randomAngle;
 
         // Add Randomness to Speed increment
-        // Instead of fixed 0.2, it varies between 0.1 and 0.4
         const speedIncrement = 0.1 + (Math.random() * 0.3);
         ball.speed += speedIncrement;
         
@@ -118,36 +126,76 @@ export const PickleballGame: React.FC = () => {
     // Clear
     ctx.clearRect(0, 0, canvasDims.width, canvasDims.height);
 
-    // Draw Court (Background)
-    ctx.fillStyle = '#0F172A'; 
+    // --- DRAW COURT BACKGROUND ---
+    
+    // Main Court Color (Blue Hard Court)
+    ctx.fillStyle = '#1e3a8a'; // Dark Blue
     ctx.fillRect(0, 0, canvasDims.width, canvasDims.height);
     
-    // Draw Kitchen Line
-    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-    ctx.lineWidth = 2;
+    // Kitchen Area Color (Slightly lighter or different shade)
+    ctx.fillStyle = '#172554'; // Darker Blue for Kitchen
+    ctx.fillRect(0, 0, canvasDims.width, KITCHEN_LINE_Y);
+
+    // --- DRAW LOGO (Watermark) ---
+    if (logoRef.current && logoRef.current.complete) {
+        ctx.save();
+        ctx.globalAlpha = 0.15; // Low opacity
+        const logoSize = 180;
+        const logoX = (canvasDims.width - logoSize) / 2;
+        // Position roughly in the middle of the backcourt
+        const logoY = KITCHEN_LINE_Y + (canvasDims.height - KITCHEN_LINE_Y - logoSize) / 2;
+        
+        ctx.drawImage(logoRef.current, logoX, logoY, logoSize, logoSize);
+        ctx.restore();
+    }
+
+    // --- DRAW LINES ---
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'butt';
+
+    // Kitchen Line (Horizontal)
     ctx.beginPath();
-    ctx.moveTo(0, 150);
-    ctx.lineTo(canvasDims.width, 150);
+    ctx.moveTo(0, KITCHEN_LINE_Y);
+    ctx.lineTo(canvasDims.width, KITCHEN_LINE_Y);
     ctx.stroke();
+
+    // Center Line (Vertical - from Kitchen to Baseline)
+    ctx.beginPath();
+    ctx.moveTo(canvasDims.width / 2, KITCHEN_LINE_Y);
+    ctx.lineTo(canvasDims.width / 2, canvasDims.height);
+    ctx.stroke();
+
+    // Net (Top Bar)
+    ctx.fillStyle = '#f8fafc'; // White Tape
+    ctx.fillRect(0, 0, canvasDims.width, 12);
+    // Net Mesh Effect
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(0, 4, canvasDims.width, 4);
+
+
+    // --- DRAW GAME ELEMENTS ---
 
     // Draw Paddle
     ctx.fillStyle = '#CCFF00'; 
     ctx.shadowBlur = 15;
-    ctx.shadowColor = '#CCFF00';
+    ctx.shadowColor = 'rgba(204, 255, 0, 0.5)';
     ctx.beginPath();
-    ctx.roundRect(paddleRef.current.x, canvasDims.height - 30, PADDLE_WIDTH, PADDLE_HEIGHT, 8);
+    ctx.roundRect(paddleRef.current.x, canvasDims.height - 30, PADDLE_WIDTH, PADDLE_HEIGHT, 6);
     ctx.fill();
     ctx.shadowBlur = 0;
 
     // Draw Ball
-    ctx.fillStyle = '#FFFF00';
+    ctx.fillStyle = '#FFFF00'; // Optic Yellow
     ctx.beginPath();
     ctx.arc(ballRef.current.x, ballRef.current.y, BALL_RADIUS, 0, Math.PI * 2);
     ctx.fill();
+    // Ball Highlight (3D effect)
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath();
+    ctx.arc(ballRef.current.x - 2, ballRef.current.y - 2, 2, 0, Math.PI * 2);
+    ctx.fill();
 
-    // Draw Net (Top)
-    ctx.fillStyle = '#1E293B';
-    ctx.fillRect(0, 0, canvasDims.width, 10);
   };
 
   useEffect(() => {
